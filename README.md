@@ -127,10 +127,10 @@ task all            # Run format, lint, vet, test and build
 task help           # Show help for the program
 ```
 
-To install Task, run:
+To install Task, follow the instructions at [taskfile.dev](https://taskfile.dev/installation/) or run:
 
 ```bash
-task install-task
+sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
 ```
 
-Or follow the instructions at [taskfile.dev](https://taskfile.dev/installation/).
+Once Task is installed, you can use all the task commands listed above.
