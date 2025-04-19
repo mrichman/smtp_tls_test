@@ -1,0 +1,83 @@
+version: '3'
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task -l
+    silent: true
+
+  build:
+    desc: Build the application
+    cmds:
+      - mkdir -p build
+      - go build -o build/smtp_tls_test
+
+  run:
+    desc: Run without TLS
+    deps: [build]
+    cmds:
+      - ./build/smtp_tls_test send
+
+  run:tls:
+    desc: Run with TLS
+    deps: [build]
+    cmds:
+      - ./build/smtp_tls_test send --tls
+
+  run:verbose:
+    desc: Run in verbose mode
+    deps: [build]
+    cmds:
+      - ./build/smtp_tls_test send --verbose
+
+  run:tls-verbose:
+    desc: Run with TLS and verbose mode
+    deps: [build]
+    cmds:
+      - ./build/smtp_tls_test send --tls --verbose
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test -v ./...
+
+  lint:
+    desc: Run linters
+    cmds:
+      - golangci-lint run
+
+  fmt:
+    desc: Format code
+    cmds:
+      - go fmt ./...
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -rf build
+
+  all:
+    desc: Run format, lint, vet, test and build
+    cmds:
+      - task: fmt
+      - task: lint
+      - task: vet
+      - task: test
+      - task: build
+
+  help:
+    desc: Show help for the program
+    deps: [build]
+    cmds:
+      - ./build/smtp_tls_test --help
+
+  install-task:
+    desc: Install Task runner
+    cmds:
+      - sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
