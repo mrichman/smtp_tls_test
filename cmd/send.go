@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"net/smtp"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -32,6 +30,7 @@ The email can be sent with or without TLS encryption.`,
 					SMTP: config.SMTPConfig{
 						Host:     "smtp.example.com",
 						Port:     587,
+						Username: "username@example.com",
 						From:     "sender@example.com",
 						Password: "your_password",
 						To:       []string{"recipient@example.com"},
@@ -53,26 +52,20 @@ The email can be sent with or without TLS encryption.`,
 		// SMTP server configuration
 		smtpHost := cfg.SMTP.Host
 		smtpPort := cfg.SMTP.Port
+		username := cfg.SMTP.Username
 		from := cfg.SMTP.From
 		password := cfg.SMTP.Password
 		to := cfg.SMTP.To
 
+		// If username is not set, use the from address as fallback
+		if username == "" {
+			username = from
+			logger.Info("SMTP username not specified, using From address as username")
+		}
+
 		// Message content
 		subject := "Test Email from Go SMTP Program"
-		body := "This is a test email sent from a Go program using SMTP"
-
-		// Create message
-		message := smtpClient.NewMessage(subject, body).
-			SetFrom(from).
-			AddTo(to...).
-			AddHeader("X-Mailer", "SMTP TLS Test").
-			Bytes()
-
-		// Authentication
-		auth := smtp.PlainAuth("", from, password, smtpHost)
-
-		// Address in format host:port
-		addr := fmt.Sprintf("%s:%d", smtpHost, smtpPort)
+		body := "This is a test email sent from a Go program using SMTP with gomail"
 
 		// Automatically detect connection type based on port
 		// Port 465 typically uses direct TLS
@@ -81,19 +74,37 @@ The email can be sent with or without TLS encryption.`,
 		useDirectTLS := useTLS || smtpPort == 465
 
 		if verbose {
-			logger.LogSMTPConversation(smtpHost, smtpPort, from, to)
-		}
-
-		if useDirectTLS {
-			logger.Info("Sending email with direct TLS connection (port %d)...", smtpPort)
-			err = smtpClient.SendMailWithTLS(addr, auth, from, to, message, smtpHost, verbose)
+			logger.Info("Sending email with verbose logging...")
+			err = smtpClient.SendMailWithTLSDebug(
+				smtpHost,
+				smtpPort,
+				username,
+				password,
+				from,
+				to,
+				subject,
+				body,
+				useDirectTLS,
+			)
 		} else {
-			logger.Info("Sending email with STARTTLS if supported (port %d)...", smtpPort)
-			if verbose {
-				err = smtpClient.SendMailWithSTARTTLS(addr, auth, from, to, message, smtpHost)
+			if useDirectTLS {
+				logger.Info("Sending email with direct TLS connection (port %d)...", smtpPort)
 			} else {
-				err = smtp.SendMail(addr, auth, from, to, message)
+				logger.Info("Sending email with STARTTLS if supported (port %d)...", smtpPort)
 			}
+
+			err = smtpClient.SendMailWithGomail(
+				smtpHost,
+				smtpPort,
+				username,
+				password,
+				from,
+				to,
+				subject,
+				body,
+				useDirectTLS,
+				false,
+			)
 		}
 
 		if err != nil {

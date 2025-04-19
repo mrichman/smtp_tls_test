@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/smtp"
 	"os"
+
+	"gopkg.in/gomail.v2"
 )
 
 // DebugConn is a connection wrapper that logs all data sent and received
@@ -40,139 +41,109 @@ func NewDebugConn(conn net.Conn) *DebugConn {
 	}
 }
 
-// SendMailWithTLS sends an email using a direct TLS connection
-func SendMailWithTLS(addr string, auth smtp.Auth, from string, to []string, msg []byte, host string, verbose bool) error {
-	// TLS config
-	tlsConfig := &tls.Config{
+// SendMailWithGomail sends an email using gomail with appropriate TLS settings
+func SendMailWithGomail(host string, port int, username string, password string, from string, to []string,
+	subject string, body string, forceTLS bool, verbose bool) error {
+
+	m := gomail.NewMessage()
+	m.SetHeader("From", from)
+	m.SetHeader("To", to...)
+	m.SetHeader("Subject", subject)
+	m.SetBody("text/plain", body)
+	m.SetHeader("X-Mailer", "SMTP TLS Test")
+
+	// Create dialer with authentication
+	d := gomail.NewDialer(host, port, username, password)
+
+	// Configure TLS
+	d.TLSConfig = &tls.Config{
 		InsecureSkipVerify: true, // Note: In production, set this to false
 		ServerName:         host,
 	}
 
-	// Connect to the server with TLS
-	conn, err := tls.Dial("tcp", addr, tlsConfig)
-	if err != nil {
-		return fmt.Errorf("failed to connect to SMTP server: %v", err)
-	}
-	defer conn.Close()
-
-	// Create client, with debug wrapper if verbose mode is enabled
-	var client *smtp.Client
-	if verbose {
-		// Wrap the TLS connection with our debug connection
-		debugConn := NewDebugConn(conn)
-		client, err = smtp.NewClient(debugConn, host)
+	// Set SSL/TLS mode based on port and forceTLS flag
+	if forceTLS || port == 465 {
+		// Use SSL/TLS (implicit TLS)
+		d.SSL = true
+		if verbose {
+			fmt.Println("Using direct TLS connection (implicit TLS)")
+		}
 	} else {
-		client, err = smtp.NewClient(conn, host)
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to create SMTP client: %v", err)
-	}
-	defer client.Close()
-
-	// Authenticate
-	if err = client.Auth(auth); err != nil {
-		return fmt.Errorf("failed to authenticate: %v", err)
-	}
-
-	// Set the sender and recipient
-	if err = client.Mail(from); err != nil {
-		return fmt.Errorf("failed to set sender: %v", err)
-	}
-
-	for _, recipient := range to {
-		if err = client.Rcpt(recipient); err != nil {
-			return fmt.Errorf("failed to set recipient: %v", err)
+		// Use STARTTLS (explicit TLS) if available
+		d.SSL = false
+		if verbose {
+			fmt.Println("Using STARTTLS if supported (explicit TLS)")
 		}
 	}
 
-	// Send the email body
-	w, err := client.Data()
-	if err != nil {
-		return fmt.Errorf("failed to open data connection: %v", err)
+	if verbose {
+		fmt.Printf("Connecting to %s:%d...\n", host, port)
+		fmt.Printf("Username: %s\n", username)
+		fmt.Printf("From: %s\n", from)
+		fmt.Printf("To: %v\n", to)
+		fmt.Printf("Subject: %s\n", subject)
 	}
 
-	_, err = w.Write(msg)
-	if err != nil {
-		return fmt.Errorf("failed to write message: %v", err)
+	// Send the email
+	if err := d.DialAndSend(m); err != nil {
+		return fmt.Errorf("failed to send email: %v", err)
 	}
 
-	err = w.Close()
-	if err != nil {
-		return fmt.Errorf("failed to close data connection: %v", err)
-	}
-
-	// Send the QUIT command and close the connection
-	return client.Quit()
+	return nil
 }
 
-// SendMailWithSTARTTLS sends an email using STARTTLS if available
-func SendMailWithSTARTTLS(addr string, auth smtp.Auth, from string, to []string, msg []byte, host string) error {
-	// Connect to the server
-	conn, err := net.Dial("tcp", addr)
-	if err != nil {
-		return fmt.Errorf("failed to connect to SMTP server: %v", err)
+// SendMailWithTLSDebug sends an email with TLS and debug logging
+// This is a wrapper around gomail that provides detailed SMTP conversation logging
+func SendMailWithTLSDebug(host string, port int, username string, password string, from string, to []string,
+	subject string, body string, forceTLS bool) error {
+
+	// Log the SMTP conversation
+	fmt.Printf("SMTP Server: %s:%d\n", host, port)
+	fmt.Printf("From: %s\n", from)
+	fmt.Printf("To: %v\n", to)
+	fmt.Printf("Username: %s\n", username)
+	fmt.Printf("TLS Mode: %s\n", getTLSModeName(port, forceTLS))
+
+	// Create message
+	m := gomail.NewMessage()
+	m.SetHeader("From", from)
+	m.SetHeader("To", to...)
+	m.SetHeader("Subject", subject)
+	m.SetBody("text/plain", body)
+	m.SetHeader("X-Mailer", "SMTP TLS Test")
+
+	// Create dialer with authentication
+	d := gomail.NewDialer(host, port, username, password)
+
+	// Configure TLS
+	d.TLSConfig = &tls.Config{
+		InsecureSkipVerify: true, // Note: In production, set this to false
+		ServerName:         host,
 	}
-	defer conn.Close()
 
-	// Wrap the connection with our debug connection
-	debugConn := NewDebugConn(conn)
-
-	// Create client
-	client, err := smtp.NewClient(debugConn, host)
-	if err != nil {
-		return fmt.Errorf("failed to create SMTP client: %v", err)
-	}
-	defer client.Close()
-
-	// Check if server supports STARTTLS
-	if ok, _ := client.Extension("STARTTLS"); ok {
-		tlsConfig := &tls.Config{
-			InsecureSkipVerify: true, // Note: In production, set this to false
-			ServerName:         host,
-		}
-
-		if err = client.StartTLS(tlsConfig); err != nil {
-			return fmt.Errorf("failed to start TLS: %v", err)
-		}
-
-		fmt.Println("STARTTLS negotiation successful")
+	// Set SSL/TLS mode based on port and forceTLS flag
+	if forceTLS || port == 465 {
+		d.SSL = true
 	} else {
-		fmt.Println("Server does not support STARTTLS, continuing with unencrypted connection")
+		d.SSL = false
 	}
 
-	// Authenticate
-	if err = client.Auth(auth); err != nil {
-		return fmt.Errorf("failed to authenticate: %v", err)
+	fmt.Println("\n--- SMTP Conversation Log ---")
+	fmt.Println("Note: gomail doesn't provide direct access to SMTP conversation")
+	fmt.Println("For full SMTP conversation logging, consider using a network proxy tool")
+
+	// Send the email
+	if err := d.DialAndSend(m); err != nil {
+		return fmt.Errorf("failed to send email: %v", err)
 	}
 
-	// Set the sender and recipient
-	if err = client.Mail(from); err != nil {
-		return fmt.Errorf("failed to set sender: %v", err)
-	}
+	return nil
+}
 
-	for _, recipient := range to {
-		if err = client.Rcpt(recipient); err != nil {
-			return fmt.Errorf("failed to set recipient: %v", err)
-		}
+// Helper function to get TLS mode name
+func getTLSModeName(port int, forceTLS bool) string {
+	if forceTLS || port == 465 {
+		return "Direct TLS (Implicit TLS)"
 	}
-
-	// Send the email body
-	w, err := client.Data()
-	if err != nil {
-		return fmt.Errorf("failed to open data connection: %v", err)
-	}
-
-	_, err = w.Write(msg)
-	if err != nil {
-		return fmt.Errorf("failed to write message: %v", err)
-	}
-
-	err = w.Close()
-	if err != nil {
-		return fmt.Errorf("failed to close data connection: %v", err)
-	}
-
-	// Send the QUIT command and close the connection
-	return client.Quit()
+	return "STARTTLS (Explicit TLS) if supported"
 }

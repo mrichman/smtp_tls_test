@@ -65,6 +65,7 @@ You can configure the application using a JSON configuration file:
   "smtp": {
     "host": "smtp.example.com",
     "port": 587,
+    "username": "username@example.com",
     "from": "sender@example.com",
     "password": "your_password",
     "to": ["recipient@example.com"]

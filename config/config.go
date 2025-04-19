@@ -16,6 +16,7 @@ type Config struct {
 type SMTPConfig struct {
 	Host     string   `json:"host"`
 	Port     int      `json:"port"`
+	Username string   `json:"username"`
 	From     string   `json:"from"`
 	Password string   `json:"password"`
 	To       []string `json:"to"`
@@ -27,6 +28,7 @@ func DefaultConfig() *Config {
 		SMTP: SMTPConfig{
 			Host:     "smtp.example.com",
 			Port:     587,
+			Username: "username@example.com",
 			From:     "sender@example.com",
 			Password: "your_password",
 			To:       []string{"recipient@example.com"},
