@@ -1,5 +1,14 @@
 version: '3'
 
+vars:
+  BINARY_NAME: 
+    sh: |
+      if [ "{{OS}}" = "windows" ]; then
+        echo "smtp_tls_test.exe"
+      else
+        echo "smtp_tls_test"
+      fi
+
 tasks:
   default:
     desc: Show available tasks
@@ -9,33 +18,41 @@ tasks:
 
   build:
     desc: Build the application
+    vars:
+      MKDIR_CMD:
+        sh: |
+          if [ "{{OS}}" = "windows" ]; then
+            echo "mkdir -p build 2>nul || (exit 0)"
+          else
+            echo "mkdir -p build"
+          fi
     cmds:
-      - mkdir -p build
-      - go build -o build/smtp_tls_test
+      - '{{.MKDIR_CMD}}'
+      - go build -o build/{{.BINARY_NAME}}
 
   run:
     desc: Run without TLS
     deps: [build]
     cmds:
-      - ./build/smtp_tls_test send
+      - '{{if eq OS "windows"}}.\build\{{.BINARY_NAME}}{{else}}./build/{{.BINARY_NAME}}{{end}} send'
 
   run:tls:
     desc: Run with TLS
     deps: [build]
     cmds:
-      - ./build/smtp_tls_test send --tls
+      - '{{if eq OS "windows"}}.\build\{{.BINARY_NAME}}{{else}}./build/{{.BINARY_NAME}}{{end}} send --tls'
 
   run:verbose:
     desc: Run in verbose mode
     deps: [build]
     cmds:
-      - ./build/smtp_tls_test send --verbose
+      - '{{if eq OS "windows"}}.\build\{{.BINARY_NAME}}{{else}}./build/{{.BINARY_NAME}}{{end}} send --verbose'
 
   run:tls-verbose:
     desc: Run with TLS and verbose mode
     deps: [build]
     cmds:
-      - ./build/smtp_tls_test send --tls --verbose
+      - '{{if eq OS "windows"}}.\build\{{.BINARY_NAME}}{{else}}./build/{{.BINARY_NAME}}{{end}} send --tls --verbose'
 
   test:
     desc: Run tests
@@ -60,7 +77,7 @@ tasks:
   clean:
     desc: Remove build artifacts
     cmds:
-      - rm -rf build
+      - '{{if eq OS "windows"}}if exist build rmdir /s /q build{{else}}rm -rf build{{end}}'
 
   all:
     desc: Run format, lint, vet, test and build
@@ -75,9 +92,16 @@ tasks:
     desc: Show help for the program
     deps: [build]
     cmds:
-      - ./build/smtp_tls_test --help
+      - '{{if eq OS "windows"}}.\build\{{.BINARY_NAME}}{{else}}./build/{{.BINARY_NAME}}{{end}} --help'
 
   install-task:
     desc: Install Task runner
     cmds:
-      - sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+      - |
+        {{if eq OS "windows"}}
+        echo "Please download Task from https://taskfile.dev/installation/ for Windows"
+        {{else if eq OS "darwin"}}
+        sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+        {{else}}
+        sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+        {{end}}
