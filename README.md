@@ -10,7 +10,7 @@ git clone https://github.com/mrichman/smtp_tls_test.git
 cd smtp_tls_test
 
 # Build the application
-go build -o build/smtp_tls_test
+go build -o smtp_tls_test
 
 # Or use the provided task runner
 task build
@@ -20,34 +20,34 @@ task build
 
 ```bash
 # Show help
-./build/smtp_tls_test --help
+smtp_tls_test --help
 
 # Send email without TLS (uses STARTTLS if available)
-./build/smtp_tls_test send
+smtp_tls_test send
 
 # Send email with TLS (forces direct TLS connection)
-./build/smtp_tls_test send --tls
+smtp_tls_test send --tls
 
 # Enable verbose mode to log the entire SMTP conversation
-./build/smtp_tls_test send --verbose
+smtp_tls_test send --verbose
 
 # Combine flags
-./build/smtp_tls_test send --tls --verbose
+smtp_tls_test send --tls --verbose
 
 # Create a default configuration file
-./build/smtp_tls_test config create
+smtp_tls_test config create
 
 # Show current configuration
-./build/smtp_tls_test config show
+smtp_tls_test config show
 
 # Validate configuration
-./build/smtp_tls_test config validate
+smtp_tls_test config validate
 
 # Specify a custom configuration file
-./build/smtp_tls_test send --config /path/to/config.json
+smtp_tls_test send --config /path/to/config.json
 
 # Show version information
-./build/smtp_tls_test version
+smtp_tls_test version
 
 # Using Task runner (if installed)
 task run           # Run without TLS
@@ -75,13 +75,13 @@ You can configure the application using a JSON configuration file:
 To create a default configuration file:
 
 ```bash
-./build/smtp_tls_test config create
+smtp_tls_test config create
 ```
 
 You can also specify a custom configuration file path:
 
 ```bash
-./build/smtp_tls_test --config /path/to/config.json
+smtp_tls_test --config /path/to/config.json
 ```
 
 ## How It Works
